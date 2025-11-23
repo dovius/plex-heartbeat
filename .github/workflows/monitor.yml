@@ -1,0 +1,28 @@
+name: Plex External Heartbeat
+
+on:
+  schedule:
+    - cron: '*/5 * * * *' # Vykdoma kas 5 minutes
+  workflow_dispatch:
+
+jobs:
+  ping-healthchecks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check Connection and Ping HC
+        env:
+          HOST: ${{ secrets.NAS_HOST }}
+          HC_URL: ${{ secrets.HC_URL }}
+        run: |
+          echo "Bandome pasiekti $HOST:32400..."
+          
+          # 'nc -z' tikrina portą. '-w 5' laukia max 5 sek.
+          if nc -z -v -w 5 "$HOST" 32400; then
+            echo "✅ SĖKMĖ: Plex pasiekiamas. Siunčiame signalą į Healthchecks.io"
+            curl -fsS -m 10 --retry 3 "$HC_URL"
+          else
+            echo "❌ KLAIDA: Plex nepasiekiamas. Nesiunčiame signalo."
+            # Svarbu: Mes 'exit 0' (sėkmė), kad GitHub nesiųstų tau el. laiškų, 
+            # kad "Action failed". Mes norime, kad apie klaidą praneštų tik Healthchecks.
+            exit 0
+          fi
